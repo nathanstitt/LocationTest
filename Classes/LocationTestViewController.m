@@ -9,7 +9,7 @@
 #import "LocationTestViewController.h"
 #import "LogViewController.h"
 #import "LocationTestAppDelegate.h"
-
+#import <MapKit/MapKit.h>
 @implementation LocationDelegate
 
 - (id) initWithLabel:(UILabel*)label
@@ -26,17 +26,30 @@
 	[appDelegate log:resultsLabel.text];
 }
 
+-(NSString*)locationString:(CLLocation *)newLocation {
+	NSDateFormatter * formatter = [[[NSDateFormatter alloc] init] autorelease];
+	[formatter setTimeStyle:NSDateFormatterMediumStyle];
+	return [NSString stringWithFormat:@"(%@) %@ Location %.06f %.06f %@", ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground) ? @"bg" : @"fg", resultsLabel.tag == 0 ? @"gps:" : @"sig" , newLocation.coordinate.latitude, newLocation.coordinate.longitude, [formatter stringFromDate:newLocation.timestamp]];
+}
 - (void)locationManager:(CLLocationManager *)manager
 	didUpdateToLocation:(CLLocation *)newLocation
 		   fromLocation:(CLLocation *)oldLocation
 {
-	NSDateFormatter * formatter = [[[NSDateFormatter alloc] init] autorelease];
-	[formatter setTimeStyle:NSDateFormatterMediumStyle];
 		
-	resultsLabel.text = [NSString stringWithFormat:@"(%@) %@ Location %.06f %.06f %@", ([UIApplication sharedApplication].applicationState == UIApplicationStateBackground) ? @"bg" : @"fg", resultsLabel.tag == 0 ? @"gps:" : @"sig" , newLocation.coordinate.latitude, newLocation.coordinate.longitude, [formatter stringFromDate:newLocation.timestamp]];
+	resultsLabel.text = [ self locationString:newLocation ];
 	
 	LocationTestAppDelegate * appDelegate = (LocationTestAppDelegate *)[UIApplication sharedApplication].delegate;
 	[appDelegate log:resultsLabel.text];
+}
+
+- (void)locationManager:(CLLocationManager *)m didEnterRegion:(CLRegion *)region{
+	LocationTestAppDelegate * appDelegate = (LocationTestAppDelegate *)[UIApplication sharedApplication].delegate;
+	[ appDelegate log: [NSString stringWithFormat:@"Enter %@",[ self locationString:m.location ] ] ];
+}
+
+- (void)locationManager:(CLLocationManager *)m didExitRegion:(CLRegion *)region{
+	LocationTestAppDelegate * appDelegate = (LocationTestAppDelegate *)[UIApplication sharedApplication].delegate;
+	[ appDelegate log: [NSString stringWithFormat:@"Exit  %@", [ self locationString:m.location ] ] ];
 }
 
 @end
@@ -50,6 +63,7 @@
 @synthesize m_gpsSwitch;
 @synthesize m_mapSwitch;
 @synthesize m_map;
+@synthesize significantManager=m_significantManager;
 
 - (void) log:(NSString*)msg andLabel:(UILabel*)label;
 {
@@ -63,7 +77,7 @@
 		
 	m_gpsDelegate = [[LocationDelegate alloc] initWithLabel:m_gpsResultsLabel];
 	m_significantDelegate = [[LocationDelegate alloc] initWithLabel:m_significantResultsLabel];	
-		
+	m_map.delegate = self;
     [super viewDidLoad];
 }
 
@@ -117,10 +131,48 @@
 		[self significantOff];
 }
 
+-(void)moveTo:(CLLocationCoordinate2D)coord {
+	MKCoordinateRegion region;
+	region.center = coord;
+	region.span.longitudeDelta = 0.08;
+	region.span.latitudeDelta  = 0.08;
+	m_map.region = region;
+}
+
 -(IBAction) actionMap:(id)sender
 {
 	[self log:[NSString stringWithFormat:@"map showing location %@", m_mapSwitch.on ? @"on" : @"off"] andLabel:nil];
 	m_map.showsUserLocation = m_mapSwitch.on;
+	if ( m_mapSwitch.on ){
+		[ self moveTo: m_map.userLocation.location.coordinate ];
+	}
+}
+
+
+-(IBAction) activateRegion:(id)sender{
+	[self log:[NSString stringWithFormat:@"Activate Region - am monitoring %d regions", [ m_significantManager monitoredRegions ].count ] andLabel:nil];
+	if (! m_significantManager ){
+		[self log:[NSString stringWithFormat:@"Signifigant isn't on, unable to mark region" ] andLabel:nil];
+	}
+	CLLocationCoordinate2D coord = m_map.userLocation.location.coordinate;
+	[ self moveTo: coord ];
+	// Create the region and start monitoring it.
+	CLRegion* region = [[CLRegion alloc] initCircularRegionWithCenter: coord
+                        radius:1000.0f identifier: @"SingleRegionOnly"];
+	
+	[ m_significantManager startMonitoringForRegion:region desiredAccuracy:10.0f];
+ 		
+	for ( MKCircle *overlay in m_map.overlays ){
+		[ m_map removeOverlay: overlay ];
+	}
+	
+	MKCircle *circle = [MKCircle circleWithCenterCoordinate: coord radius:1000.0f];
+	[ m_map addOverlay: circle ];
+	[ circle release ];
+	
+	
+	[self log:[NSString stringWithFormat:@"Created Region, now montitoring %d regions", [ m_significantManager monitoredRegions ].count ] andLabel:nil];
+	
 }
 
 -(IBAction) actionLog:(id)sender
@@ -154,6 +206,18 @@
 	[m_gpsDelegate release];
 	[m_significantDelegate release];
     [super dealloc];
+}
+
+
+#pragma MKMapViewDelegate methods
+
+-(MKOverlayView *)mapView:(MKMapView *)mapView viewForOverlay:(id)overlay{
+	MKCircleView* circleView = [[MKCircleView alloc] initWithOverlay:overlay];
+	circleView.strokeColor = [UIColor darkGrayColor];
+	circleView.lineWidth = 1.0;
+	circleView.fillColor = [UIColor lightGrayColor];
+	circleView.alpha= 0.6f;
+	return [ circleView autorelease ];
 }
 
 @end

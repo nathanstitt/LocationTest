@@ -62,21 +62,29 @@
 	NSString * logMessage = [NSString stringWithFormat:@"%@ %@", [formatter stringFromDate:[NSDate date]], msg];
 		
 	NSString * fileName = [self locationPath];
-	FILE * f = fopen([fileName cString], "at");
-	fprintf(f, "%s\n", [logMessage cString]);
+	FILE * f = fopen([fileName cStringUsingEncoding:[NSString defaultCStringEncoding] ], "at");
+	fprintf(f, "%s\n", [logMessage cStringUsingEncoding:[NSString defaultCStringEncoding]]);
 	fclose (f);
 }
 
 - (void)locationManager:(CLLocationManager *)manager didFailWithError:(NSError *)error
 {
-	[self log:[NSString stringWithFormat:@"Background Fail %@", [error localizedDescription]]];
+	[self log:[NSString stringWithFormat:@"BG Fail %@", [error localizedDescription]]];
 }
 
 - (void)locationManager:(CLLocationManager *)manager
 	didUpdateToLocation:(CLLocation *)newLocation
 		   fromLocation:(CLLocation *)oldLocation
 {
-	[self log:[NSString stringWithFormat:@"Background location %.06f %.06f %@" , newLocation.coordinate.latitude, newLocation.coordinate.longitude, newLocation.timestamp]];
+	[self log:[NSString stringWithFormat:@"BG location %.06f %.06f %@" , newLocation.coordinate.latitude, newLocation.coordinate.longitude, newLocation.timestamp]];
+}
+
+- (void)locationManager:(CLLocationManager *)m didEnterRegion:(CLRegion *)region{
+	[ self log: [NSString stringWithFormat:@"BG Region Enter:  %.06f %.06f ",m.location.coordinate.latitude, m.location.coordinate.longitude ] ];
+}
+
+- (void)locationManager:(CLLocationManager *)m didExitRegion:(CLRegion *)region{
+	[ self log: [NSString stringWithFormat:@"BG Region Exit: %.06f %.06f",m.location.coordinate.latitude, m.location.coordinate.longitude ] ];
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {    
@@ -132,7 +140,7 @@
 
 
 - (void)applicationDidBecomeActive:(UIApplication *)application {
-	[self log:@"applicationDidBecomeActive"];
+	[self log:[ NSString stringWithFormat: @"applicationDidBecomeActive - Tracking %d regions",[ viewController.significantManager monitoredRegions].count ] ];
     /*
      Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
      */

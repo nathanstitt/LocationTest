@@ -20,12 +20,13 @@
 @end
 
 
-@interface LocationTestViewController : UIViewController <CLLocationManagerDelegate> {
+@interface LocationTestViewController : UIViewController <CLLocationManagerDelegate,MKMapViewDelegate> {
 	IBOutlet UILabel * m_gpsResultsLabel;
 	IBOutlet UILabel * m_significantResultsLabel;
 	IBOutlet UISwitch * m_gpsSwitch;
 	IBOutlet UISwitch * m_significantSwitch;
 	IBOutlet UISwitch * m_mapSwitch;
+	
 	IBOutlet MKMapView * m_map;
 	
 	LocationDelegate * m_gpsDelegate;
@@ -40,6 +41,7 @@
 -(IBAction) actionSignificant:(id)sender;
 -(IBAction) actionMap:(id)sender;
 -(IBAction) actionLog:(id)sender;
+-(IBAction) activateRegion:(id)sender;
 
 @property (retain, nonatomic) IBOutlet UILabel * m_gpsResultsLabel;
 @property (retain, nonatomic) IBOutlet UILabel * m_significantResultsLabel;
@@ -47,6 +49,6 @@
 @property (retain, nonatomic) IBOutlet UISwitch * m_significantSwitch;
 @property (retain, nonatomic) IBOutlet UISwitch * m_mapSwitch;
 @property (retain, nonatomic) IBOutlet MKMapView * m_map;
-
+@property (readonly, nonatomic ) CLLocationManager* significantManager;
 @end
 
